@@ -26,9 +26,9 @@ team_t team = {
     /* Team name */
     "ateam",
     /* First member's full name */
-    "Harry Bovik",
+    "Choo SungKyul",
     /* First member's email address */
-    "bovik@cs.cmu.edu",
+    "choosg@naver.com",
     /* Second member's full name (leave blank if none) */
     "",
     /* Second member's email address (leave blank if none) */
@@ -70,11 +70,11 @@ static char *heap_listp;        // 항상 prologue block을 가리키는 정적 
 
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
-static void *mm_malloc(size_t size);
 static void *first_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
 int mm_init(void);
+void *mm_malloc(size_t size);
 void mm_free(void *bp);
 
 /*
@@ -82,7 +82,7 @@ void mm_free(void *bp);
  */
 int mm_init(void)
 {
-    if((heap_listp = mem_sbrk(4*WSIZE) == (void *)-1))
+    if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
         return -1;
 
     PUT(heap_listp, 0);
@@ -113,24 +113,6 @@ Init(size: CHUNKSIZE)
 ||       |        |        |                                                                         |        |          ||
 ---------------------------------------------------------------------------------------------------------------------------
 */
-
-// 새로운 가용 블록으로 힙 확장
-static void *extend_heap(size_t words)
-{
-    char *bp;
-    size_t size;
-
-    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
-    if((long)(bp = mem_sbrk(size)) == -1)
-        return NULL;
-
-    PUT(HDRP(bp), PACK(size, 0));
-    PUT(FTRP(bp), PACK(size, 0));
-    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));       // New Epilogue Header
-
-    return coalesce(bp);                        // 힙 영역 확장시 이전 블록 혹은 prologue블록과 epilogue 블록과 연결이 돼있는지 확인?
-}
-
 // 가용 블록들을 통합
 static void *coalesce(void *bp)
 {
@@ -140,7 +122,9 @@ static void *coalesce(void *bp)
 
     // 이전, 다음 블록이 가용 블록인지 확인해서 통합
     if(prev_alloc && next_alloc)
+    {
         return bp;
+    }
 
     else if(prev_alloc && !next_alloc)
     {
@@ -159,23 +143,41 @@ static void *coalesce(void *bp)
 
     else
     {
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp))) + GET_SIZE(FTRP(PREV_BLKP(bp)));
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
+
+    return bp;
+}
+
+// 새로운 가용 블록으로 힙 확장
+static void *extend_heap(size_t words)
+{
+    char *bp;
+    size_t size;
+
+    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
+    if((long)(bp = mem_sbrk(size)) == -1)
+        return NULL;
+
+    PUT(HDRP(bp), PACK(size, 0));
+    PUT(FTRP(bp), PACK(size, 0));
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));       // New Epilogue Header
+
+    return coalesce(bp);                        // 힙 영역 확장시 이전 블록 혹은 prologue블록과 epilogue 블록과 연결이 돼있는지 확인?
 }
 
 static void *first_fit(size_t asize)
 {
     char *tempBp = heap_listp;
-    size_t tempSize;
 
-    while((tempSize = GET_SIZE(HDRP(tempBp))) != 0)
+    while(GET_SIZE(HDRP(tempBp)) > 0)
     {
-        if(tempSize > asize && !GET_ALLOC(HDRP(tempBp)))
+        if(GET_SIZE(HDRP(tempBp)) >= asize && !GET_ALLOC(HDRP(tempBp)))
             return tempBp;
-        tempBp = HDRP(NEXT_BLKP(tempBp));
+        tempBp = NEXT_BLKP(tempBp);
     }
 
     return NULL;
@@ -184,11 +186,27 @@ static void *first_fit(size_t asize)
 static void place(void *bp, size_t asize)
 {
     size_t beforeFreeBlkSize = GET_SIZE(HDRP(bp));
-    PUT(HDRP(bp), PACK(asize, 1));
-    PUT(FTRP(bp), PACK(asize, 1));
-    bp = NEXT_BLKP(bp);
-    PUT(HDRP(bp), PACK(beforeFreeBlkSize - asize, 0));
-    PUT(FTRP(bp), PACK(beforeFreeBlkSize - asize, 0));
+
+    // PUT(HDRP(bp), PACK(asize, 1));
+    // PUT(FTRP(bp), PACK(asize, 1));
+    // bp = NEXT_BLKP(bp);
+    // PUT(HDRP(bp), PACK(beforeFreeBlkSize - asize, 0));
+    // PUT(FTRP(bp), PACK(beforeFreeBlkSize - asize, 0));
+
+    // 만약 16byte 보다 작다면 사용하지 못하니 패딩을 채워준다.
+    if((beforeFreeBlkSize - asize) >= (2*DSIZE))
+    {
+        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(asize, 1));
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(beforeFreeBlkSize - asize, 0));
+        PUT(FTRP(bp), PACK(beforeFreeBlkSize - asize, 0));
+    }
+    else
+    {
+        PUT(HDRP(bp), PACK(beforeFreeBlkSize, 1));
+        PUT(FTRP(bp), PACK(beforeFreeBlkSize, 1));
+    }
 }
 
 /*
@@ -248,7 +266,7 @@ void *mm_realloc(void *ptr, size_t size)
     newptr = mm_malloc(size);
     if (newptr == NULL)
         return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    copySize = GET_SIZE(HDRP(ptr));
     if (size < copySize)
         copySize = size;
     memcpy(newptr, oldptr, copySize);

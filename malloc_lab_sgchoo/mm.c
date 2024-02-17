@@ -106,7 +106,7 @@ Epilogue Header의 size를 0으로 만드는 이유
     이는 구현을 단순화하고, 메모리 할당 및 해제 작업의 효율성을 향상.
 */
 /*
-Init(size: CHUNKSIZE)
+Implicit List Init(size: CHUNKSIZE)
 ---------------------------------------------------------------------------------------------------------------------------
 ||  Pro  |  logue |        |                                                                         |        | Epilogue ||
 ||       |        | Header |                       free block                                        | Footer |          ||

@@ -19,5 +19,12 @@ typedef struct {
     char *id2;      /* login ID of second member */
 } team_t;
 
+typedef struct
+{
+    char *start;
+    char *end;
+} list_t;
+
+
 extern team_t team;
 

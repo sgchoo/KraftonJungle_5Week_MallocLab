@@ -169,6 +169,10 @@ static void *extend_heap(size_t words)
     return coalesce(bp);                        // 힙 영역 확장시 이전 블록 혹은 prologue블록과 epilogue 블록과 연결이 돼있는지 확인?
 }
 
+/*
+두 번째 힙 영역이 할당될 때, 기존에 있던 영역과 연결해주기 위해.
+*/
+
 static void *first_fit(size_t asize)
 {
     char *tempBp = heap_listp;
